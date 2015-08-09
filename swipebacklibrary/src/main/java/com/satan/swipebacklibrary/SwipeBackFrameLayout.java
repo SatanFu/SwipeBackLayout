@@ -38,14 +38,17 @@ public class SwipeBackFrameLayout extends FrameLayout {
             //返回true表示可以拖动
             @Override
             public boolean tryCaptureView(View child, int pointerId) {
-                return child == mContentView;
+                return child == mContentView;//如果child==mContentView，返回true，也就是说mContentView可以移动
             }
 
             //记录值的变化
             @Override
             public void onViewPositionChanged(View changedView, int left, int top, int dx, int dy) {
+                //记录左边的值的变化，因为我们实现的是往右滑动，所以只记录左边的值就可以了
                 mMoveLeft = left;
                 if (isClose && (left == mContentWidth)) {
+                    //如果当前状态是关闭状态且左边的值等于滑动的View的宽度，
+                    //也就是说当前的界面已经滑出屏幕，就回调finish方法，通知activity可以finish了
                     mCallBack.onFinish();
                 }
             }
@@ -57,24 +60,30 @@ public class SwipeBackFrameLayout extends FrameLayout {
                 //如果移动的距离大于或等于当前界面的1/2，则触发关闭
                 if (mMoveLeft >= (mContentWidth / 2)) {
                     isClose = true;
+                    //设置滑动的View移动位置，即然当前的界面滑出屏幕
                     mViewDragHelper.settleCapturedViewAt(mContentWidth, releasedChild.getTop());
-                    invalidate();
                 } else {
+                    //设置滑动的View移动位置，即恢复原来的位置
                     mViewDragHelper.settleCapturedViewAt(0, releasedChild.getTop());
-                    invalidate();
                 }
+                //通知重绘界面
+                invalidate();
             }
 
             //重新定位水平移动的位置
             @Override
             public int clampViewPositionHorizontal(View child, int left, int dx) {
+                //水平移动距离的范围是0~当前界面的宽度，如果left小于0直接返回0，
+                // 如果大于当前界面的宽度直接返回当前界面宽度
+                //也就是控制当前界面只能往右移动
                 return Math.min(mContentWidth, Math.max(left, 0));
             }
 
 
-            //关键方法：设置水平拖动的距离
+            //设置水平拖动的距离
             @Override
             public int getViewHorizontalDragRange(View child) {
+                //因为我们移动的是整个界面，所以直接返回整个界面的宽度就可以了
                 return mContentWidth;
             }
 
@@ -85,22 +94,31 @@ public class SwipeBackFrameLayout extends FrameLayout {
     @Override
     protected void onFinishInflate() {
         super.onFinishInflate();
+        //SwipeBackFrameLayout的子View有且只有一个，否则抛异常
+        if (getChildCount() != 1) {
+            throw new IllegalStateException("SwipeBackFrameLayout must host one child.");
+        }
+        //取得当前布局的第一个子View，也是唯一一个子View
+        //也就是activity的主要布局
         mContentView = getChildAt(0);
     }
 
     @Override
     protected void onLayout(boolean changed, int left, int top, int right, int bottom) {
         super.onLayout(changed, left, top, right, bottom);
+        //获取当前界面宽度
         mContentWidth = mContentView.getWidth();
     }
 
     @Override
     public boolean onInterceptTouchEvent(MotionEvent ev) {
+        //把事件传递给ViewDragHelper
         return mViewDragHelper.shouldInterceptTouchEvent(ev);
     }
 
     @Override
     public boolean onTouchEvent(MotionEvent event) {
+        //把事件传递给ViewDragHelper
         mViewDragHelper.processTouchEvent(event);
         return true;
     }
@@ -108,15 +126,18 @@ public class SwipeBackFrameLayout extends FrameLayout {
     @Override
     public void computeScroll() {
         super.computeScroll();
+        //一定要做这个操作，否则onViewReleased不起作用
         if (mViewDragHelper.continueSettling(true)) {
             invalidate();
         }
     }
 
+    //设置回调接口
     public void setCallBack(CallBack callBack) {
         mCallBack = callBack;
     }
 
+    //界面移出屏幕时接口回调
     public interface CallBack {
         void onFinish();
     }
